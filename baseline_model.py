@@ -1,4 +1,6 @@
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import f1_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from sklearn.naive_bayes import MultinomialNB
@@ -13,7 +15,7 @@ from preprocessing import get_cleaned_data
 
 df = get_cleaned_data()
 
-vectorizer = TfidfVectorizer(max_features=5000)
+vectorizer = TfidfVectorizer(max_features=5000, ngram_range=(1,2))
 X = vectorizer.fit_transform(df['text_clean'])
 
 print(X.shape)
@@ -41,18 +43,43 @@ print(f"Test {X_test.shape[0]} examples")
 # TRAINING + CHECKING
 
 
-nb_model = MultinomialNB()
-nb_model.fit(X_train, y_train)
+models = {
+    'Naive Bayes':         MultinomialNB(),
+    'Logistic Regression': LogisticRegression(max_iter=1000),
+}
 
-y_pred = nb_model.predict(X_test)
+results = {}
 
-print(classification_report(y_pred, y_test, target_names=['ham', 'spam'])) # CLASSIFICATION REPORT
+for name, model in models.items():
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+    f1 = f1_score(y_test, y_pred)
+    results[name] = f1
+    print(f"{name}: F1 = {f1:.4f}")
 
-cm = confusion_matrix(y_test, y_pred) # CONFUSION MATRIX
-sns.heatmap(cm, annot=True, fmt='d',
-            xticklabels=['ham', 'spam'],
-            yticklabels=['ham', 'spam'])
-plt.xlabel('Predicted')
-plt.ylabel('Actual')
-plt.title('Confusion Matrix')
+plt.figure(figsize=(8, 4))
+plt.bar(results.keys(), results.values(), color=['steelblue', 'coral'])
+plt.title('F1-score: Naive Bayes vs Logistic Regression')
+plt.ylabel('F1 (spam)')
+plt.ylim(0.85, 1.0)
+plt.show()
+
+
+# CONFUSION MATRICES
+
+
+fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+
+for ax, (name, model) in zip(axes, models.items()):
+    y_pred = model.predict(X_test)
+    cm = confusion_matrix(y_test, y_pred)
+    sns.heatmap(cm, annot=True, fmt='d',
+                xticklabels=['ham', 'spam'],
+                yticklabels=['ham', 'spam'],
+                ax=ax)
+    ax.set_xlabel('Predicted')
+    ax.set_ylabel('Actual')
+    ax.set_title(f'Confusion Matrix — {name}')
+
+plt.tight_layout()
 plt.show()
